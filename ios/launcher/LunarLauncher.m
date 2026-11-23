@@ -2242,12 +2242,19 @@ static UTType *MasterType(void) {
         BunkerVersion(),
         NSBundle.mainBundle.bundleIdentifier, bundle[@"CFBundleShortVersionString"], device.systemName, device.systemVersion,
         bundle[@"LunarPortOffset"] ?: @0];
-    NSString *error = TakeString(LunarExportLogs((char *)LogFolder().fileSystemRepresentation, (char *)target.fileSystemRepresentation, (char *)info.UTF8String));
-    if (error.length) { [self alert:T(@"launcher.log.export_failed") message:TSaid(error)]; return; }
-    self.pickerMode = 6;
-    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:target]] asCopy:YES];
-    picker.delegate = self;
-    [self presentViewController:picker animated:YES completion:nil];
+    NSString *library = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES).firstObject;
+    dispatch_async(gQueue, ^{
+        NSString *error = TakeString(LunarExportAppLogs((char *)LogFolder().fileSystemRepresentation,
+            (char *)Documents().fileSystemRepresentation, (char *)ToolsRoot().fileSystemRepresentation,
+            (char *)library.fileSystemRepresentation, (char *)target.fileSystemRepresentation, (char *)info.UTF8String, -1));
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (error.length) { [self alert:T(@"launcher.log.export_failed") message:TSaid(error)]; return; }
+            self.pickerMode = 6;
+            UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:target]] asCopy:YES];
+            picker.delegate = self;
+            [self presentViewController:picker animated:YES completion:nil];
+        });
+    });
 }
 - (void)close {
     gMessage = @"";

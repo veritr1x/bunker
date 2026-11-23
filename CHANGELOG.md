@@ -4,6 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.23 (2026-11-23)
+
+- **Export logs** on Android and iOS now saves a ZIP with Lunar Tear, launcher, and Pod Programs diagnostics. Android includes the app’s recent logcat output when available. iOS includes logs written under Library/Logs.
+- Fixed a case where an old server crash could appear again after restarting.
+
 ## 1.12.22 (2026-11-23)
 
 - The Bunker project license now credits veritr1x. Bundled projects retain their own license notices.

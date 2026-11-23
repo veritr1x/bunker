@@ -168,3 +168,15 @@ JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_exportLogs(JNIEn
     if (i) (*env)->ReleaseStringUTFChars(env, info, i);
     return result(env, error);
 }
+JNIEXPORT jstring JNICALL Java_org_veritr1x_bunker_NativeBridge_exportAppLogs(JNIEnv *env, jclass type, jstring dir, jstring files, jstring tools, jint fd, jstring info) {
+    const char *d = (*env)->GetStringUTFChars(env, dir, NULL);
+    const char *a = (*env)->GetStringUTFChars(env, files, NULL);
+    const char *t = (*env)->GetStringUTFChars(env, tools, NULL);
+    const char *i = (*env)->GetStringUTFChars(env, info, NULL);
+    char *error = d && a && t && i ? LunarExportAppLogs((char *)d, (char *)a, (char *)t, NULL, NULL, (char *)i, (int)fd) : NULL;
+    if (d) (*env)->ReleaseStringUTFChars(env, dir, d);
+    if (a) (*env)->ReleaseStringUTFChars(env, files, a);
+    if (t) (*env)->ReleaseStringUTFChars(env, tools, t);
+    if (i) (*env)->ReleaseStringUTFChars(env, info, i);
+    return result(env, error);
+}

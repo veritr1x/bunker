@@ -7,11 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 )
 
 func closeLog() {
+	debug.SetCrashOutput(nil, debug.CrashOptions{})
 	logFile.Lock()
 	if logFile.f != nil {
 		logFile.f.Close()
@@ -118,9 +120,14 @@ func TestExportLogs(t *testing.T) {
 	// A crash not yet moved into the log, as when the server has not started since.
 	os.WriteFile(filepath.Join(dir, crashName), []byte("panic: not yet reported\n"), 0600)
 	// Written over an existing, longer file through a descriptor, as Android does.
+	app, tools := t.TempDir(), t.TempDir()
+	os.WriteFile(filepath.Join(app, "upscale-log.txt"), []byte("upscale"), 0600)
+	os.WriteFile(filepath.Join(tools, "last-patch.log"), []byte("patch"), 0600)
+	os.WriteFile(filepath.Join(dir, "renderer.log.2"), []byte("rotated"), 0600)
+	os.WriteFile(filepath.Join(app, "game.db"), []byte("save"), 0600)
 	os.WriteFile(target, []byte(strings.Repeat("junk", 100000)), 0600)
 	f, _ := os.OpenFile(target, os.O_RDWR, 0)
-	if e := ExportLogsFd(dir, int(f.Fd()), "device: test"); e != "" {
+	if e := ExportLogsFd(dir, int(f.Fd()), "device: test", LogDirectory{app, "app", false}, LogDirectory{tools, "tools/patcher", false}); e != "" {
 		t.Fatal(e)
 	}
 	f.Close()
@@ -141,5 +148,8 @@ func TestExportLogs(t *testing.T) {
 	}
 	if !strings.Contains(got[logName], "exported line") || got[logName+".1"] != "older\n" || !strings.Contains(got["info.txt"], "device: test") || got[crashName] != "panic: not yet reported\n" {
 		t.Fatalf("archive: %v", got)
+	}
+	if got["app/upscale-log.txt"] != "upscale" || got["tools/patcher/last-patch.log"] != "patch" || got["renderer.log.2"] != "rotated" || got["app/game.db"] != "" {
+		t.Fatalf("app logs: %v", got)
 	}
 }

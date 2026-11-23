@@ -6,6 +6,7 @@ package main
 import "C"
 import (
 	"log"
+	"path/filepath"
 
 	"lunar-tear/server/mobile"
 )
@@ -123,6 +124,26 @@ func LunarExportLogs(dir, target, info *C.char) *C.char {
 //export LunarExportLogsFd
 func LunarExportLogsFd(dir *C.char, fd C.int, info *C.char) *C.char {
 	return C.CString(mobile.ExportLogsFd(C.GoString(dir), int(fd), C.GoString(info)))
+}
+
+//export LunarExportAppLogs
+func LunarExportAppLogs(dir, app, tools, library, target, info *C.char, fd C.int) *C.char {
+	appPath, toolsPath := C.GoString(app), C.GoString(tools)
+	sources := []mobile.LogDirectory{
+		{Path: appPath, Prefix: "app"},
+		{Path: toolsPath, Prefix: "tools"},
+		{Path: filepath.Join(toolsPath, "patcher"), Prefix: "tools/patcher"},
+	}
+	if fd >= 0 {
+		external := filepath.Dir(C.GoString(dir))
+		if external != appPath {
+			sources = append(sources, mobile.LogDirectory{Path: external, Prefix: "external"})
+		}
+		sources = append(sources, mobile.LogDirectory{Path: filepath.Join(external, "Unity"), Prefix: "unity"})
+		return C.CString(mobile.ExportLogsFd(C.GoString(dir), int(fd), C.GoString(info), sources...))
+	}
+	sources = append(sources, mobile.LogDirectory{Path: filepath.Join(C.GoString(library), "Logs"), Prefix: "library/logs", Recursive: true})
+	return C.CString(mobile.ExportLogs(C.GoString(dir), C.GoString(target), C.GoString(info), sources...))
 }
 
 // LunarImportArchiveFd reads an archive the caller already opened (Android's

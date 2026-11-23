@@ -150,9 +150,9 @@ content presets, as on Android) is on the Bunker itself. Tap **⋮** for:
 - **Export save backup** saves `game.db`, `auth.db` and `auth.key` in a ZIP.
 - **Import save backup** restores such a ZIP, from iOS or Android, or a bare
   `game.db`. The current save is kept in `saves.before-import`.
-- **Lunar Tear log** shows the latest lines. **Export Lunar Tear log** saves a ZIP with
-  the log and the iOS version. The log is kept between sessions (`Documents/logs`,
-  up to about 10 MB, also visible in Files).
+- **Lunar Tear log** shows the latest server lines. **Export logs** saves a ZIP with
+  the server, crash, upscaler, Pod Programs and other available app log files and the iOS version.
+  The server history is also visible in Files under `Documents/logs`.
 - **App settings**, **Help** and **About**.
 
 Stopping the server, importing master data or exporting saves disconnects the

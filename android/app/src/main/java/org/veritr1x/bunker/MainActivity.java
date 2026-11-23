@@ -602,7 +602,9 @@ public final class MainActivity extends ControllerActivity {
         new Thread(()->{
             String error;
             try(ParcelFileDescriptor fd=getContentResolver().openFileDescriptor(uri,"rwt")){
-                error=fd==null?Texts.t(this,"launcher.log.cant_open"):NativeBridge.exportLogs(FilesStore.logs(this).getAbsolutePath(),fd.getFd(),info);
+                error=fd==null?Texts.t(this,"launcher.log.cant_open"):NativeBridge.exportAppLogs(
+                    FilesStore.logs(this).getAbsolutePath(),getFilesDir().getAbsolutePath(),
+                    ToolsRuntime.directory(this).getAbsolutePath(),fd.getFd(),info);
             }catch(Exception e){error=e.getMessage();}
             String result=error;
             runOnUiThread(()->dialog().setTitle(result==null||result.isEmpty()?Texts.t(this,"launcher.log.exported"):Texts.t(this,"launcher.log.export_failed"))
