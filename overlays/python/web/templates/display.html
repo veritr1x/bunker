@@ -56,6 +56,10 @@
       <label for="window">{{ t("pods.display.window") }}{{ info(t("pods.display.window_info")) }}</label>
       <select name="window" id="window">{% for key, title in window_options %}<option value="{{ key }}"{% if settings.window == key %} selected{% endif %}>{{ t(title) }}</option>{% endfor %}</select>
     </div>{% endif %}
+    {% if window_mode_options|length > 1 %}<div class="setting">
+      <label for="window_mode">{{ t("pods.display.window_mode") }}{{ info(t("pods.display.window_mode_info")) }}</label>
+      <select name="window_mode" id="window_mode">{% for key, title in window_mode_options %}<option value="{{ key }}"{% if settings.window_mode == key %} selected{% endif %}>{{ t(title) }}</option>{% endfor %}</select>
+    </div>{% endif %}
   </div>
 
   <div class="actions"><button type="submit">{{ t("common.save") }}</button></div>

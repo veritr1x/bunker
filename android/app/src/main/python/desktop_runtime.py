@@ -85,6 +85,9 @@ def start(data_root, asset_root, tools_root, original_master="", port=0):
     config = android_runtime.configure(data_root, asset_root, tools_root, _edit, lambda message: print(message, file=sys.stderr, flush=True))
     config.SHIM_LUNAR_TEAR_REF = "bunker-server"
     android_runtime.TEXTURE = _texture
+    # A computer's window can also fill its screen without a border (the player's --fullscreen).
+    import android_display
+    android_display.WINDOW_MODE = android_display.WINDOW_MODE[:1] + android_display.WINDOW_MODE_DESKTOP
     # The data tools print what they wrote; standard output is kept for the one line main() prints.
     with contextlib.redirect_stdout(sys.stderr):
         android_runtime.prepare_data()
