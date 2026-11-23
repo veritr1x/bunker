@@ -202,7 +202,7 @@ jobs:
         run: |
           lock=.publisher/web/windows-release.json
           if [[ "$(jq -r .bunkerVersion "$lock")" == "$(cat VERSION)" ]]; then
-            cp .publisher/web/{app.js,index.html,build_site.py,windows-worker.js} web/
+            cp .publisher/web/{app.js,index.html,build_site.py,windows-worker.js,desktop-inputs.js,linux-worker.js,linux-play.sh} web/
             echo "revision=$(jq -er .runtimeRevision "$lock")" >> "$GITHUB_OUTPUT"
           fi
       - name: Fetch the approved translated runtime
@@ -247,13 +247,30 @@ jobs:
             unzip -qo bundles/windows-kit.zip -d .build/windows-kit
             windows+=(--windows-kit .build/windows-kit)
           fi
+          linux=()
+          lock=.publisher/web/linux-release.json
+          if [[ -n "$WINDOWS_REVISION" && -f "$lock" && "$(jq -r .bunkerVersion "$lock")" == "$version" ]]; then
+            tag="v$(jq -er .reincompVersion "$lock")"
+            name=$(jq -er .asset "$lock")
+            # Enable the option only after its companion release asset is available.
+            gh api --paginate --slurp repos/veritr1x/reincomp/releases > "$RUNNER_TEMP/reincomp-releases.json"
+            jq --arg tag "$tag" '[.[][] | select(.tag_name == $tag and (.draft | not)) | .assets[]]' \
+              "$RUNNER_TEMP/reincomp-releases.json" > "$RUNNER_TEMP/reincomp-assets.json"
+            if jq -e --arg n "$name" 'any(.[]; .name == $n)' "$RUNNER_TEMP/reincomp-assets.json" >/dev/null; then
+              jq -e --slurpfile pin "$lock" 'any(.[]; .name == $pin[0].asset and .size == $pin[0].size and
+                .digest == ("sha256:" + $pin[0].sha256))' "$RUNNER_TEMP/reincomp-assets.json" >/dev/null
+              linux+=(--linux-release "$lock")
+            else
+              echo "::notice::The native Linux runtime is awaiting publication."
+            fi
+          fi
           notices=()
           if [ -f notices.lock.json ]; then python3 scripts/notices.py; notices=(--notices inputs/bunker-notices.zip); fi
           python3 web/build_site.py \
             --companion-apk bundles/android/app-debug.apk \
             --framework bundles/ios/LunarTear.framework \
             --python bundles/ios/python-bundle \
-            --output site "${notices[@]}" "${windows[@]}"
+            --output site "${notices[@]}" "${windows[@]}" "${linux[@]}"
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

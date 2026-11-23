@@ -61,6 +61,18 @@ WINDOWS_FILES = {
 }
 
 
+def linux_release(path, metadata):
+    pin = json.loads(path.read_bytes())
+    version = pin.get("reincompVersion")
+    if (not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version)
+            or version != metadata.get("reincompVersion") or pin.get("bunkerVersion") != metadata["version"]
+            or pin.get("asset") != f"reincomp-linux-x86_64-{version}.tar.gz"
+            or not isinstance(pin.get("sha256"), str) or not re.fullmatch("[a-f0-9]{64}", pin["sha256"])
+            or type(pin.get("size")) is not int or pin["size"] <= 0):
+        raise ValueError("The Linux release must match the desktop browser kit and Bunker version")
+    return pin
+
+
 def windows_bundle(source, target, bunker_version):
     source = source.resolve(strict=True)
     manifest = json.loads((source / "kit.json").read_text(encoding="utf-8"))
@@ -170,6 +182,7 @@ def main():
     p.add_argument("--output", type=Path, help="Defaults to .build/site or .build/private-site for a prepared runtime")
     p.add_argument("--windows-kit", type=Path, help="Public Windows browser compiler bundle from re[in]comp")
     p.add_argument("--windows-runtime", type=Path, help="Include a matching precompiled game runtime in the output site")
+    p.add_argument("--linux-release", type=Path, help="Enable the Linux build using a verified native release pin")
     p.add_argument("--notices", type=Path, default=ROOT / "inputs/bunker-notices.zip", help="Pinned notice pack (scripts/notices.py)")
     args = p.parse_args()
     local_kit = ROOT / ".build/windows-kit"
@@ -185,7 +198,7 @@ def main():
         p.error("Choose a site output outside the source kit and runtime directories")
     shutil.rmtree(out, ignore_errors=True)
     (out / "bundles").mkdir(parents=True)
-    for name in ("index.html", "app_identity.js", "app.js", "worker.js", "windows-worker.js"):
+    for name in ("index.html", "app_identity.js", "app.js", "worker.js", "windows-worker.js", "desktop-inputs.js", "linux-worker.js", "linux-play.sh"):
         shutil.copy2(ROOT / "web" / name, out / name)
     shutil.copy2(ROOT / "web/signing/bunker-key.p12", out / "bunker-key.p12")
     for name in PYTHON:
@@ -209,6 +222,11 @@ def main():
         try:
             metadata["windowsRuntime"] = prepared_windows_runtime(args.windows_runtime, args.windows_kit, out / "windows")
         except (KeyError, OSError, ValueError) as error:
+            p.error(str(error))
+    if args.linux_release:
+        try:
+            metadata["linuxRelease"] = linux_release(args.linux_release, metadata)
+        except (OSError, ValueError) as error:
             p.error(str(error))
     (out / "version.json").write_text(json.dumps(metadata))
     folder_bundle(args.framework, out / "bundles/ios-framework.zip", "LunarTear.framework/")

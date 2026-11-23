@@ -21,6 +21,21 @@ def added_paths(source):
 
 
 class SiteFilesTest(unittest.TestCase):
+    def test_linux_release_matches_the_browser_kit(self):
+        pin = {"reincompVersion": "0.3.1", "bunkerVersion": "1.12.23",
+               "asset": "reincomp-linux-x86_64-0.3.1.tar.gz", "size": 123, "sha256": "a" * 64}
+        metadata = {"version": "1.12.23", "reincompVersion": "0.3.1"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "linux-release.json"
+            path.write_text(json.dumps(pin))
+            self.assertEqual(build_site.linux_release(path, metadata), pin)
+            for key, value in (("sha256", "bad"), ("size", 0), ("asset", "../other"),
+                               ("bunkerVersion", "1.12.22"), ("reincompVersion", "0.3.0")):
+                with self.subTest(key=key):
+                    path.write_text(json.dumps({**pin, key: value}))
+                    with self.assertRaises(ValueError):
+                        build_site.linux_release(path, metadata)
+
     def test_windows_compiler_requires_complete_verified_kit(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

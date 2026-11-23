@@ -1,21 +1,10 @@
-const original = {
-  apk: { size: 263571029, hash: "9ded0797ee607b6892b531ba3a02f4c4510774f5fe098ccada78ccff881c9209" },
-  master: { size: 7801104, hash: "60555788242de9a0580b0d86f6d109d67bd9cabd16d7bcda9b9a99745f270778" }
-};
+import { verifyDesktopInputs } from "./desktop-inputs.js";
 const log = (value) => self.postMessage({ type: "log", value });
-
-async function verify(file, expected, label) {
-  if (!(file instanceof Blob) || file.size !== expected.size) throw new Error("Choose the original Global " + label + ".");
-  const bytes = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  const hash = Array.from(new Uint8Array(bytes), (value) => value.toString(16).padStart(2, "0")).join("");
-  if (hash !== expected.hash) throw new Error("The " + label + " differs from the expected Global release.");
-}
 
 self.onmessage = async ({ data }) => {
   try {
     log("Checking the original Global game and master data…");
-    await verify(data.master, original.master, "master data");
-    await verify(data.game, original.apk, "3.7.1 ARM64 APK");
+    await verifyDesktopInputs(data.game, data.master);
     const { compileWindows } = await import("./windows/compiler.mjs");
     const blob = await compileWindows({ apk: data.game, master: data.master, log, preparedRuntime: data.windowsRuntime });
     if (!(blob instanceof Blob) || blob.size < 512) throw new Error("The compiler returned an incomplete Windows executable.");

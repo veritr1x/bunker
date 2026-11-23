@@ -140,9 +140,9 @@ Light or dark follows the phone, or choose one in ⋮ → Display. Screenshots a
 
 ## Build in your browser
 
-**[Open the web builder](https://veritr1x.github.io/bunker/)**: pick Android or
-iPhone/iPad, choose your own game file and master data, and download the offline app. Everything
-runs in your browser; your files are never uploaded. No tools to install.
+**[Open the web builder](https://veritr1x.github.io/bunker/)** and select your
+platform. Choose your own game file and master data, then download the build.
+The browser processes both files locally.
 
 Limitations:
 
@@ -272,6 +272,11 @@ the game. Later starts need no Internet. You need Windows 10 or 11 on an Intel o
 with Windows Hypervisor Platform turned on. See [Windows](docs/WINDOWS.md).
 
 ## Play on Linux
+
+For the native x86-64 player, choose **Linux** in the web builder once its
+matching runtime is published. Supply the Global ARM64 APK and master data,
+extract the TAR, place the resource dump beside `Play.sh`, then run
+`./Play.sh`. The first launch fetches the verified reincomp runtime.
 
 Experimental. Each release includes the same program for Linux (`Bunker-<version>-linux-x86_64`
 and `-linux-arm64`). With Waydroid installed, it installs your `bunker.apk` in Waydroid and copies
