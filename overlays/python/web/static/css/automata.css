@@ -625,6 +625,8 @@ main > h1::after, .bracket-header::after {
   padding-left: 10px;
   text-align: right;
   background: linear-gradient(var(--accent), var(--accent)) no-repeat left 10px bottom 0.45em / calc(100% - 10px - 1.1em) 1px;
+  /* A rule with under 16px of room is left out: a stub reads as a stray underscore. */
+  background-size: min(calc((100% - 10px - 1.1em - 16px) * 999), calc(100% - 10px - 1.1em)) 1px;
 }
 .bracket-header { font-size: var(--fs-body); margin: 24px 0 14px; gap: 10px; }
 h2.bracket-header { font-size: var(--fs-small); }
@@ -865,7 +867,7 @@ form.panel[aria-disabled="true"] { opacity: 0.5; }
   .page-side > :first-child { margin-top: 0; }
   .page-side > h1 { display: flex; align-items: center; gap: 8px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent); }
   .page-side > h1::before { content: "["; }
-  .page-side > h1::after { content: "]"; flex: 1; text-align: right; background: linear-gradient(var(--accent), var(--accent)) no-repeat left 8px bottom 0.45em / calc(100% - 8px - 1.1em) 1px; }
+  .page-side > h1::after { content: "]"; flex: 1; text-align: right; background: linear-gradient(var(--accent), var(--accent)) no-repeat left 8px bottom 0.45em / calc(100% - 8px - 1.1em) 1px; background-size: min(calc((100% - 8px - 1.1em - 16px) * 999), calc(100% - 8px - 1.1em)) 1px; }
   .page-side .panel { padding: 8px 10px; }
   .page-side .panel, .page-side p { font-size: var(--fs-small); line-height: 1.5; }
   .page-side p { margin: 6px 0; }
