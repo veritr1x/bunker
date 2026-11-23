@@ -1,7 +1,7 @@
 {
-  "bunkerVersion": "1.12.22",
-  "kitAsset": "bunker-windows-browser-1.12.22-reincomp-0.2.8.zip",
-  "runtimeRevision": "74bb06dba0d7b1e1812466ca1a69f121983e2eab",
-  "runtimeManifestSHA256": "3e0a305d2435bf1616dbd5036f7faf0a9f2c45ff98eb7124b01569fc27cd1fb2",
-  "kitArchiveSHA256": "e19f0855a329237538fd6c2a732d01f24b2d500edb38adc4c9118ab5823dff1a"
+  "bunkerVersion": "1.12.23",
+  "kitAsset": "bunker-windows-browser-1.12.23-reincomp-0.3.0.zip",
+  "runtimeRevision": "83a4c2721cf2dbe795910a3932cec413b877dd27",
+  "runtimeManifestSHA256": "06db3c459bfa2ca22301ffb0c5fd42663ce699d724628fa6945255c9200d0681",
+  "kitArchiveSHA256": "727a32e569f881544f635799be148ef672c60c4c323b72ab53f2032246589086"
 }
