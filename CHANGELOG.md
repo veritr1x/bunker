@@ -4,6 +4,10 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.22 (2026-11-23)
+
+- The Bunker project license now credits veritr1x. Bundled projects retain their own license notices.
+
 ## 1.12.21 (2026-11-23)
 
 - The Windows web builder publishes the reincomp player version alongside the Bunker version so the game can identify its own updates. Windows builds display both versions in the builder.
