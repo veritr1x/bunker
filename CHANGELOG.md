@@ -4,6 +4,10 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.24 (2026-11-25)
+
+- Lunar Tear's license in the app (`LUNAR_TEAR_LICENSE.txt`) again names its author, Ilya Groshev. 1.12.22 and 1.12.23 shipped Bunker's own license under that name by mistake. Android corrects it on the next update. iOS corrects it with this release's framework.
+
 ## 1.12.23 (2026-11-23)
 
 - **Export logs** on Android and iOS now saves a ZIP with Lunar Tear, launcher, and Pod Programs diagnostics. Android includes the app’s recent logcat output when available. iOS includes logs written under Library/Logs.
