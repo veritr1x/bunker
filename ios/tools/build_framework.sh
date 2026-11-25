@@ -48,7 +48,8 @@ game_patch="$(python3 -c "import sys; sys.path.insert(0, '$root_dir/android/tool
 printf '{"version": "%s", "gamePatch": %s}\n' "$version" "$game_patch" > "$framework/build.json"
 if [ "$master" != none ]; then cp "$master" "$framework/20240404193219.bin.e"; fi
 if [ -n "$original" ]; then cp "$original" "$framework/original-master.bin.e"; fi
-cp "$root_dir/LICENSE" "$framework/LUNAR_TEAR_LICENSE.txt"
+# Lunar Tear's licence, from its own repository: the repository's LICENSE is Bunker's.
+cp "$root_dir/upstream/lunar-tear/LICENSE" "$framework/LUNAR_TEAR_LICENSE.txt"
 # Bunker's own words in English, for the launcher (LTTexts.m); packs translate them.
 cp "$root_dir/translations/bunker/en.json" "$framework/bunker_en.json"
 echo "Built $framework"

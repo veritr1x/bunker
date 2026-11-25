@@ -383,6 +383,56 @@ class FontLicenceTests(unittest.TestCase):
             self.assertEqual(z.read("assets/lunar/NOTO_OFL.txt"), b"ofl")
 
 
+class LunarTearLicenceTests(unittest.TestCase):
+    """LUNAR_TEAR_LICENSE.txt is Lunar Tear's licence (upstream/lunar-tear/LICENSE), never
+    the repository's LICENSE, which is Bunker's: 1.12.22 and 1.12.23 shipped the wrong one."""
+    UPSTREAM = ROOT / "upstream/lunar-tear/LICENSE"
+
+    def setUp(self):
+        self.case = UpdateTests("test_update_keeps_port_offset")
+        self.case.setUp()
+        self.addCleanup(self.case.doCleanups)
+
+    def companion_with_licence(self, data):
+        companion = self.case.companion()
+        with zipfile.ZipFile(companion, "a") as z:
+            z.writestr(assemble_apk.LICENSE_ENTRY, data)
+        return companion
+
+    def test_update_replaces_a_wrong_licence_with_the_launchers(self):
+        out = self.case.work / "out.apk"
+        assemble_apk.update(self.case.installed(), self.companion_with_licence(b"lunar tear"), out, log=lambda m: None)
+        with zipfile.ZipFile(out) as z:
+            self.assertEqual(z.read(assemble_apk.LICENSE_ENTRY), b"lunar tear")
+            self.assertEqual(z.namelist().count(assemble_apk.LICENSE_ENTRY), 1)
+
+    def test_update_keeps_the_licence_when_the_launcher_has_none(self):
+        out = self.case.work / "out.apk"
+        assemble_apk.update(self.case.installed(), self.case.companion(), out, log=lambda m: None)
+        with zipfile.ZipFile(out) as z:
+            self.assertEqual(z.read(assemble_apk.LICENSE_ENTRY), b"license")
+
+    def test_launchers_copy_comes_first_then_the_submodules(self):
+        with zipfile.ZipFile(self.companion_with_licence(b"lunar tear")) as z:
+            self.assertEqual(assemble_apk.lunar_tear_license(z), b"lunar tear")
+        with zipfile.ZipFile(self.case.companion()) as z:
+            self.assertEqual(assemble_apk.lunar_tear_license(z), self.UPSTREAM.read_bytes())
+
+    def test_the_licence_is_lunar_tears_not_bunkers(self):
+        self.assertEqual(assemble_apk.LUNAR_TEAR_LICENSE, self.UPSTREAM)
+        self.assertIn(b"Ilya Groshev", self.UPSTREAM.read_bytes())
+
+    def test_no_build_ships_the_repository_licence_as_lunar_tears(self):
+        import re
+        for path in ["android/tools/build_native.sh", "ios/tools/build_framework.sh", "android/tools/package_game.py",
+                     "android/tools/assemble_apk.py"]:
+            for line in (ROOT / path).read_text().splitlines():
+                if "LUNAR_TEAR_LICENSE" in line and re.search(r"[\"/(]LICENSE\b", line):
+                    self.assertIn("upstream/lunar-tear/LICENSE", line, f"{path}: {line.strip()}")
+        self.assertIn('upstream/lunar-tear/LICENSE" ../android/app/src/main/assets/lunar/LUNAR_TEAR_LICENSE.txt',
+                      (ROOT / "android/tools/build_native.sh").read_text())
+
+
 class DeviceToolsTests(unittest.TestCase):
     def test_device_copy_has_every_tool_assemble_apk_imports(self):
         import re

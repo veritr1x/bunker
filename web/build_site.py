@@ -18,7 +18,11 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = [
+    # Lunar Tear's licence, which the APK ships as LUNAR_TEAR_LICENSE.txt when the launcher
+    # has none (assemble_apk.lunar_tear_license). Release tags up to 1.12.23 read it from
+    # /repo/LICENSE, so that path is served Lunar Tear's licence too (SOURCES), not Bunker's.
     "LICENSE",
+    "upstream/lunar-tear/LICENSE",
     "web/webbuild.py",
     "android/tools/apk_sign.py",
     "android/tools/axml.py",
@@ -47,6 +51,8 @@ PYTHON = [
     # The letters game_fonts.py adds to the game's fonts, and their licence.
     *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "fonts/noto").iterdir()),
 ]
+# Mirror paths served from another file of the repository.
+SOURCES = {"LICENSE": "upstream/lunar-tear/LICENSE"}
 PAGES_LIMIT = 100 * 1024 * 1024  # GitHub Pages refuses larger files.
 NOTICE_PART_SIZE = 64 * 1024 * 1024
 WINDOWS_FILES = {
@@ -204,7 +210,7 @@ def main():
     for name in PYTHON:
         target = out / "py" / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / name, target)
+        shutil.copy2(ROOT / SOURCES.get(name, name), target)
     (out / "py/manifest.json").write_text(json.dumps(PYTHON))
     android_bundle(args.companion_apk, out / "bundles/android.zip")
     # The version this site builds, shown in the page header.

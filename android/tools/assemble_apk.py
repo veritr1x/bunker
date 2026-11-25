@@ -369,6 +369,18 @@ class ApkWriter:
             self.out.write(bytes(central) + eocd)
 
 
+LICENSE_ENTRY = "assets/lunar/LUNAR_TEAR_LICENSE.txt"
+# Lunar Tear's own licence: the repository's LICENSE is Bunker's, a different copyright.
+LUNAR_TEAR_LICENSE = ROOT / "upstream/lunar-tear/LICENSE"
+
+
+def lunar_tear_license(companion):
+    """Lunar Tear's licence: the launcher's copy (build_native.sh), else the submodule's."""
+    if LICENSE_ENTRY in companion.namelist():
+        return companion.read(LICENSE_ENTRY)
+    return LUNAR_TEAR_LICENSE.read_bytes()
+
+
 def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notices=None, app_id=None, app_name=None):
     with zipfile.ZipFile(apk) as game, zipfile.ZipFile(companion_apk) as companion, open(apk, "rb") as raw:
         build_info.check_companion(companion)
@@ -416,14 +428,14 @@ def assemble(apk, master, companion_apk, output, log=print, port_offset=0, notic
                 for name in sorted(companion.namelist(), key=lambda n: (len(n), n)):
                     if re.fullmatch(r"classes\d*\.dex", name):
                         writer.add("classes%d.dex" % next_dex, companion.read(name)); next_dex += 1
-                ours = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
+                ours = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", LICENSE_ENTRY,
                         "assets/lunar/build.json", "assets/lunar/game-manifest.xml"}
                 for name in sorted(companion.namelist()):
                     if name.startswith(("lib/arm64-v8a/", "assets/chaquopy/", "assets/lunar/")) and name not in ours:
                         writer.add(name, companion.read(name))
                 writer.add("assets/lunar/" + MASTER, patched_master)
                 writer.add("assets/lunar/original-master.bin.e", original_master)
-                writer.add("assets/lunar/LUNAR_TEAR_LICENSE.txt", (ROOT / "LICENSE").read_bytes())
+                writer.add(LICENSE_ENTRY, lunar_tear_license(companion))
                 writer.add("assets/lunar/NOTO_OFL.txt", (game_fonts.NOTO / "OFL.txt").read_bytes())
                 if notices:
                     log("Adding the notices…")
@@ -465,8 +477,12 @@ def update(installed_apk, companion_apk, output, log=print, notices=None):
         manifest, _ = patch_manifest(game.read("assets/lunar/game-manifest.xml"), companion.read("AndroidManifest.xml"),
                                      old["portOffset"], app_id=old.get("appId"), app_name=old.get("appName"))
         # The game's fonts stay as built, so does the licence of the letters added to them.
-        kept = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e", "assets/lunar/LUNAR_TEAR_LICENSE.txt",
+        kept = {"assets/lunar/" + MASTER, "assets/lunar/original-master.bin.e",
                 "assets/lunar/game-manifest.xml", "assets/lunar/NOTO_OFL.txt"}
+        # Lunar Tear's licence comes with the launcher, replacing one an earlier build got wrong
+        # (1.12.22 and 1.12.23 shipped Bunker's LICENSE under its name); a launcher without one keeps it.
+        if LICENSE_ENTRY not in companion.namelist():
+            kept.add(LICENSE_ENTRY)
         temporary = Path(str(output) + ".partial")
         try:
             with open(temporary, "wb") as out:

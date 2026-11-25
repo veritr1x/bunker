@@ -19,6 +19,8 @@ cp ../android/emblem/bunker-emblem-notification.png ../android/emblem/bunker-emb
 # Licences of the upscaling shaders (render_scale_shaders.h), shipped with them.
 mkdir -p ../android/app/src/main/assets/lunar/licenses
 cp ../android/licenses/*.txt ../android/app/src/main/assets/lunar/licenses/
+# Lunar Tear's licence, from its own repository: the repository's LICENSE is Bunker's.
+cp "$root_dir/upstream/lunar-tear/LICENSE" ../android/app/src/main/assets/lunar/LUNAR_TEAR_LICENSE.txt
 # The launcher rebuilds itself for an update (bunker_update.py) with the same
 # tools and public signing key as the web builder.
 rm -rf ../android/app/src/main/python/bunker_tools && mkdir -p ../android/app/src/main/python/bunker_tools ../android/app/src/main/assets/lunar/signing

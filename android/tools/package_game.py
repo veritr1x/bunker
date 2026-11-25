@@ -134,7 +134,7 @@ def main():
             if name.startswith(("assets/lunar/", "assets/chaquopy/", "lib/arm64-v8a/")):
                 dest=game/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(source.read(name))
     notices=game/"assets/lunar";notices.mkdir(parents=True,exist_ok=True)
-    shutil.copy2(root/"LICENSE",notices/"LUNAR_TEAR_LICENSE.txt")
+    shutil.copy2(root/"upstream/lunar-tear/LICENSE",notices/"LUNAR_TEAR_LICENSE.txt")  # Lunar Tear's, not Bunker's LICENSE
     shutil.copy2(game_fonts.NOTO/"OFL.txt",notices/"NOTO_OFL.txt")
     # What an update in place needs (build_info.py): the game's own manifest and dex count.
     with zipfile.ZipFile(args.game_apk) as original,zipfile.ZipFile(args.companion_apk) as source:

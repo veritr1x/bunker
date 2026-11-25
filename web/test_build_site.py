@@ -145,6 +145,16 @@ class SiteFilesTest(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+class LunarTearLicenceTest(unittest.TestCase):
+    def test_repo_licence_path_serves_lunar_tears(self):
+        # Release tags up to 1.12.23 read /repo/LICENSE as Lunar Tear's licence: never Bunker's.
+        self.assertIn("LICENSE", build_site.PYTHON)
+        self.assertIn("upstream/lunar-tear/LICENSE", build_site.PYTHON)
+        self.assertEqual(build_site.SOURCES["LICENSE"], "upstream/lunar-tear/LICENSE")
+        upstream = (build_site.ROOT / "upstream/lunar-tear/LICENSE").read_bytes()
+        self.assertIn(b"Ilya Groshev", upstream)
+
+
 class FontsTest(unittest.TestCase):
     def test_fonts_are_published(self):
         # game_fonts.py reads fonts/noto/ next to the repo's other files (/repo in the browser).
