@@ -194,9 +194,10 @@
       <h2 class="head"><span>[</span><span>04 Install</span><span class="rule"></span><span>]</span></h2>
       <div class="frame">
         <a id="download" download>Download</a>
-        <p class="note" id="install-linux" hidden>Extract the TAR into a writable folder. Place <code>resource_dump_android.7z</code>
-          next to <code>Play.sh</code>, then run <code>./Play.sh</code> in a terminal. The first launch downloads the native runtime
-          and prepares the game. To reuse imported resources, run <code>./Play.sh --assets "/path/to/library"</code>.</p>
+        <p class="note" id="install-linux" hidden>Extract the TAR into a writable folder and run <code>./Play.sh</code>.
+          The first launch downloads the native runtime. In Bunker, select <b>Choose</b>, pick your resource archive
+          or imported library, then select <b>Deploy</b>. For terminal setup, use <code>./Play.sh --dump "/path/to/archive"</code>
+          or <code>./Play.sh --assets "/path/to/library"</code>.</p>
         <p class="note" id="install-windows" hidden>Move the EXE into the folder where you want to play. Open it,
           choose your Android resource dump if prompted, then select <b>Deploy</b> when verification finishes.</p>
         <p class="note" id="sign-android">The APK is signed and ready to install. Every APK built on this page is signed
