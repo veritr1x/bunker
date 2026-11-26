@@ -44,8 +44,14 @@ UPSCALE_IOS = [("metalfx", "pods.display.option.upscale_metalfx")]
 # (LunarWindow.m, LunarUpscale.m), which ios_runtime offers.
 WINDOW = [("stretch", "pods.display.option.window_stretch")]
 WINDOW_IOS = [("fit", "pods.display.option.window_fit")]
+# How the game's own window sits on a computer's desktop. Phones and tablets have one choice, so the
+# page hides it; desktop_runtime adds borderless fullscreen, for the Windows player's launcher to read
+# from display.conf as it starts the game (window_mode=borderless: the player's --fullscreen).
+WINDOW_MODE = [("windowed", "pods.display.option.window_mode_windowed")]
+WINDOW_MODE_DESKTOP = [("borderless", "pods.display.option.window_mode_borderless")]
 DEFAULTS = {"fps": "30", "resolution": "default", "screen": "full", "textures": "full", "idle": "on", "heat": "on",
-            "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch"}
+            "shadows": "on", "reflections": "on", "bloom": "on", "upscale": "off", "window": "stretch",
+            "window_mode": "windowed"}
 
 
 def conf_path():
@@ -60,7 +66,8 @@ def read_settings(path=None):
     except OSError:
         return settings
     allowed = {"fps": dict(FPS), "resolution": dict(RESOLUTIONS), "screen": dict(SCREENS), "textures": dict(TEXTURES), "idle": dict(IDLE), "heat": dict(HEAT),
-               **{name: dict(EFFECT) for name in EFFECTS}, "upscale": dict(UPSCALE), "window": dict(WINDOW)}
+               **{name: dict(EFFECT) for name in EFFECTS}, "upscale": dict(UPSCALE), "window": dict(WINDOW),
+               "window_mode": dict(WINDOW_MODE)}
     for line in lines:
         key, _, value = line.partition("=")
         key, value = key.strip(), value.strip()
@@ -70,14 +77,19 @@ def read_settings(path=None):
 
 
 def write_settings(fps, resolution, screen, path=None, textures="full", idle="on", heat="on", shadows="on", reflections="on", bloom="on",
-                   upscale="off", window="stretch"):
+                   upscale="off", window="stretch", window_mode=None):
+    # A caller that does not ask about the window mode keeps the one saved (display.conf as it is now).
+    if window_mode is None:
+        window_mode = read_settings()["window_mode"]
     if (fps not in dict(FPS) or resolution not in dict(RESOLUTIONS) or screen not in dict(SCREENS) or textures not in dict(TEXTURES)
-            or idle not in dict(IDLE) or heat not in dict(HEAT) or any(v not in dict(EFFECT) for v in (shadows, reflections, bloom)) or upscale not in dict(UPSCALE) or window not in dict(WINDOW)):
+            or idle not in dict(IDLE) or heat not in dict(HEAT) or any(v not in dict(EFFECT) for v in (shadows, reflections, bloom)) or upscale not in dict(UPSCALE) or window not in dict(WINDOW)
+            or window_mode not in dict(WINDOW_MODE)):
         raise ValueError(bunker_text.t("pods.display.unknown_setting"))
     path = path or conf_path()
     pending = path.with_name(path.name + ".tmp")
     pending.write_text(f"fps={fps}\nresolution={resolution}\nscreen={screen}\ntextures={textures}\nidle={idle}\nheat={heat}\n"
-                       f"shadows={shadows}\nreflections={reflections}\nbloom={bloom}\nupscale={upscale}\nwindow={window}\n")
+                       f"shadows={shadows}\nreflections={reflections}\nbloom={bloom}\nupscale={upscale}\nwindow={window}\n"
+                       f"window_mode={window_mode}\n")
     os.replace(pending, path)
 
 
@@ -101,15 +113,16 @@ KNOWN_FAILURES = {"il2cpp-missing": lambda: bunker_text.t("pods.display.il2cpp_m
 def view(request: Request, message: str = "", error: str = ""):
     # The options' words are catalogue keys: display.html translates them (t(title)).
     return templates.TemplateResponse(request, "display.html", {"active": "display", "settings": read_settings(), "fps_options": FPS,
-        "resolution_options": RESOLUTIONS, "screen_options": SCREENS, "texture_options": TEXTURES, "idle_options": IDLE, "heat_options": HEAT, "effect_options": EFFECT, "upscale_options": UPSCALE, "window_options": WINDOW, "result": last_result(), "message": message, "error": error})
+        "resolution_options": RESOLUTIONS, "screen_options": SCREENS, "texture_options": TEXTURES, "idle_options": IDLE, "heat_options": HEAT, "effect_options": EFFECT, "upscale_options": UPSCALE, "window_options": WINDOW, "window_mode_options": WINDOW_MODE, "result": last_result(), "message": message, "error": error})
 
 
 @router.post("/display")
 def save(fps: str = Form(...), resolution: str = Form(...), screen: str = Form("full"), textures: str = Form("full"), idle: str = Form("on"),
          heat: str = Form("on"), shadows: str = Form("on"), reflections: str = Form("on"), bloom: str = Form("on"),
-         upscale: str = Form("off"), window: str = Form("stretch")):
+         upscale: str = Form("off"), window: str = Form("stretch"), window_mode: str = Form("windowed")):
     try:
-        write_settings(fps, resolution, screen, textures=textures, idle=idle, heat=heat, shadows=shadows, reflections=reflections, bloom=bloom, upscale=upscale, window=window)
+        write_settings(fps, resolution, screen, textures=textures, idle=idle, heat=heat, shadows=shadows, reflections=reflections, bloom=bloom, upscale=upscale, window=window,
+                       window_mode=window_mode)
         # The status describes the previous choices until the game opens again.
         (config.DATA_DIR / "display.status").unlink(missing_ok=True)
     except Exception as exc:
