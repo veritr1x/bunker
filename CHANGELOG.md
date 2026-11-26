@@ -4,6 +4,10 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.27 (2026-11-26)
+
+- Original calendar: **Daily Quests** are in Subquests from a loop's first week. They were missing for the first 11 weeks (until the calendar reached 13 October 2021), because the game data of those weeks dated them in a way the calendar took for a placeholder. A calendar in use rebuilds its game data on the next start; there is no need to restart the calendar. [65406d28]
+
 ## 1.12.26 (2026-11-26)
 
 - iPhone and iPad: fixed "Failed to connect" after the game had been in the background for a few minutes. iOS can close the server's connections while the app is suspended. The game now checks them each time it returns and restarts Lunar Tear when they no longer answer. [48ee967c]
