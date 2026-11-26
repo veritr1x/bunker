@@ -37,6 +37,12 @@ func LunarSelfTest() *C.char { return C.CString(mobile.SelfTest()) }
 //export LunarStop
 func LunarStop() { mobile.Stop() }
 
+// LunarRevive restarts the server when it reports running but its ports no
+// longer answer (after iOS suspended the app). Empty when the server answers.
+//
+//export LunarRevive
+func LunarRevive() *C.char { return C.CString(mobile.Revive()) }
+
 // LunarRequestTitle sends the running game back to its title screen on its
 // next call, so it loads a change Pod Programs made beside it.
 //

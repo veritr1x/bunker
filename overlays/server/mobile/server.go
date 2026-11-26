@@ -315,8 +315,36 @@ func Start(dataRoot, assetRoot string) (err error) {
 	// Loading the catalogs and the asset index allocated about twice what they keep.
 	releaseMemory()
 	setStatus("running", "")
+	startedData, startedAssets = dataRoot, assetRoot
 	log.Printf("Local server ready: game %d, assets %d, accounts %d", 8003+offset(), 8080+offset(), 3000+offset())
 	return nil
+}
+
+// The folders the running server was started with, for Revive.
+var startedData, startedAssets string
+
+// Revive restarts a server that reports running while its ports no longer
+// answer. iOS can end a suspended app's listening sockets without any accept
+// call failing, and the game then keeps retrying a server that cannot hear it.
+// It returns an empty string when the server answers, before or after a
+// restart, and the reason when it could not be restarted.
+func Revive() string {
+	lifecycle.Lock()
+	running, data, assets := active != nil, startedData, startedAssets
+	lifecycle.Unlock()
+	if !running {
+		return ""
+	}
+	var test struct{ OK bool }
+	if json.Unmarshal([]byte(SelfTest()), &test) == nil && test.OK {
+		return ""
+	}
+	log.Print("The server's ports stopped answering while the app was suspended; restarting it")
+	Stop()
+	if e := Start(data, assets); e != nil {
+		return e.Error()
+	}
+	return ""
 }
 
 func Stop() {

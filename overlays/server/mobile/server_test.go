@@ -200,3 +200,58 @@ func TestSelfTestRejectsAnotherProgram(t *testing.T) {
 		}
 	}
 }
+
+// iOS can end a suspended app's listening sockets without the server noticing:
+// it still reports "running" while nothing answers on its ports.
+func TestReviveRestartsAServerWhosePortsWentDead(t *testing.T) {
+	source := os.Getenv("LUNAR_TEST_MASTER")
+	if source == "" {
+		t.Skip("set LUNAR_TEST_MASTER for real master-data integration test")
+	}
+	SetPortOffset(21000) // the desktop may use 3000 or 8080 already
+	defer SetPortOffset(0)
+	root, data := t.TempDir(), t.TempDir()
+	os.MkdirAll(filepath.Join(root, "assets/release"), 0700)
+	os.MkdirAll(filepath.Join(root, "assets/revisions/0/android"), 0700)
+	b, e := os.ReadFile(source)
+	if e != nil {
+		t.Fatal(e)
+	}
+	os.WriteFile(filepath.Join(root, "assets/release", MasterName), b, 0600)
+	os.WriteFile(filepath.Join(root, "assets/revisions/0/android/list.bin"), []byte{0x08, 0x01}, 0600)
+	if e = Start(data, root); e != nil {
+		t.Fatal(e)
+	}
+	defer Stop()
+	answers := func() bool {
+		var test struct{ OK bool }
+		return json.Unmarshal([]byte(SelfTest()), &test) == nil && test.OK
+	}
+	lifecycle.Lock()
+	first := active
+	lifecycle.Unlock()
+	if message := Revive(); message != "" || !answers() {
+		t.Fatalf("a healthy server: %q", message)
+	}
+	lifecycle.Lock()
+	if active != first {
+		t.Fatal("a healthy server was restarted")
+	}
+	for _, listener := range first.listeners {
+		listener.Close()
+	}
+	lifecycle.Unlock()
+	var status struct{ State string }
+	if json.Unmarshal([]byte(Status()), &status); status.State != "running" || answers() {
+		t.Fatalf("expected dead ports behind a running status, got state %q", status.State)
+	}
+	if message := Revive(); message != "" {
+		t.Fatal(message)
+	}
+	lifecycle.Lock()
+	restarted := active != nil && active != first
+	lifecycle.Unlock()
+	if !restarted || !answers() {
+		t.Fatal("the server was not restarted on its ports")
+	}
+}

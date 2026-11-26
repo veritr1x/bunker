@@ -2633,7 +2633,19 @@ static void BecameActive(void) {
     InstallGesture();
     if (gOpenMenu) { gOpenMenu = NO; gMessage = @""; ShowLauncher(); }
     if (gImporting) { ShowLauncher(); return; }  // Always show how far the import has got.
-    if (gToolsOpen || gRestartNeeded || Running()) { if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; return; }
+    if (gToolsOpen || gRestartNeeded) { if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh]; return; }
+    if (Running()) {
+        // A long suspension can end the listening sockets while the server still reports
+        // running, and the game then shows "Failed to connect". Ask the ports as the game does.
+        dispatch_async(gQueue, ^{
+            NSString *error = TakeString(LunarRevive());
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (error.length) { gMessage = error; ShowLauncher(); }
+                else if (gWindow) [(LTLauncherViewController *)gWindow.rootViewController refresh];
+            });
+        });
+        return;
+    }
     // iOS can reclaim listening sockets during a long suspension; restart then.
     dispatch_async(gQueue, ^{
         NSString *error = HasCatalog() ? StartServer() : @"";
