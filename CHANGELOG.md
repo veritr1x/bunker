@@ -4,6 +4,10 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
+## 1.12.25 (2026-11-26)
+
+- iPhone and iPad: fixed "Failed to connect" after the game had been in the background for a few minutes. iOS can close the server's connections while the app is suspended. The game now checks them each time it returns and restarts Lunar Tear when they no longer answer. [48ee967c]
+
 ## 1.12.24 (2026-11-25)
 
 - Lunar Tear's license in the app (`LUNAR_TEAR_LICENSE.txt`) again names its author, Ilya Groshev. 1.12.22 and 1.12.23 shipped Bunker's own license under that name by mistake. Android corrects it on the next update. iOS corrects it with this release's framework.
