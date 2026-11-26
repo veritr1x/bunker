@@ -22,6 +22,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <os/lock.h>
 
 API_AVAILABLE(ios(16.0))
 static id<MTLFXSpatialScaler> gScaler;
@@ -37,6 +38,10 @@ static NSUInteger gNextStandIn;
 static int gUpscaled, gCounts[3];
 static double gGapMax, gLast;
 static NSString *gLogPath;
+// Unity sets the layer's size on the main thread while its graphics thread asks for drawables and
+// commits frames. Everything above changes together under this lock; without it a size change
+// could free the stand-ins or the scaler while a frame was still using them.
+static os_unfair_lock gLock = OS_UNFAIR_LOCK_INIT;
 
 void LTDisplayLog(NSString *line);  // LunarWindow.m
 BOOL LTDisplayKeepShape(void);  // LunarDisplay.m: window=fit
@@ -95,10 +100,13 @@ static void FindLayer(void) {
         for (UIWindow *window in UIApplication.sharedApplication.windows) {
             CALayer *layer = window.rootViewController.view.layer;
             if (![layer isKindOfClass:CAMetalLayer.class]) continue;
+            CGSize asked = ((CGSize (*)(id, SEL))origGetSize)(layer, @selector(drawableSize));
+            os_unfair_lock_lock(&gLock);
             gScale = window.screen.nativeScale;
             gScreen = CGSizeMake(round(layer.bounds.size.width * gScale), round(layer.bounds.size.height * gScale));
-            gAsked = ((CGSize (*)(id, SEL))origGetSize)(layer, @selector(drawableSize));
+            gAsked = asked;
             gLayer = (CAMetalLayer *)layer;
+            os_unfair_lock_unlock(&gLock);
             Note([NSString stringWithFormat:@"Unity's layer: screen %.0fx%.0f, Unity's size %.0fx%.0f", gScreen.width, gScreen.height, gAsked.width, gAsked.height]);
             return;
         }
@@ -165,42 +173,61 @@ static CGSize Target(CAMetalLayer *layer) {
     return CGSizeMake(round(gAsked.width * scale), round(gAsked.height * scale));
 }
 
-static void Follow(CAMetalLayer *layer) {
+// The caller holds gLock. Returns the size to give the real layer, or zero for no change.
+static CGSize Follow(CAMetalLayer *layer) {
     CGSize pixels = Target(layer);
-    if (pixels.width < 1 || pixels.height < 1 || CGSizeEqualToSize(pixels, gScreen)) return;
+    if (pixels.width < 1 || pixels.height < 1 || CGSizeEqualToSize(pixels, gScreen)) return CGSizeZero;
     gScreen = pixels;
     if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
-    SetRealSize(layer, gUpscaling ? gScreen : gAsked);
+    return gUpscaling ? gScreen : gAsked;
 }
 
 static void HookSetSize(CAMetalLayer *layer, SEL sel, CGSize size) {
     if (layer != gLayer) { ((void (*)(id, SEL, CGSize))origSetSize)(layer, sel, size); return; }
+    os_unfair_lock_lock(&gLock);
     gAsked = size;
     gScreen = Target(layer);
     if (@available(iOS 16.0, *)) gUpscaling = Prepare(layer);
-    SetRealSize(layer, gUpscaling ? gScreen : size);
+    CGSize real = gUpscaling ? gScreen : size;
+    os_unfair_lock_unlock(&gLock);
+    SetRealSize(layer, real);
 }
 
 static CGSize HookGetSize(CAMetalLayer *layer, SEL sel) {
-    if (layer == gLayer && gUpscaling) return gAsked;  // Unity renders at the size it asked for
+    if (layer == gLayer) {
+        os_unfair_lock_lock(&gLock);
+        BOOL upscaling = gUpscaling;
+        CGSize asked = gAsked;
+        os_unfair_lock_unlock(&gLock);
+        if (upscaling) return asked;  // Unity renders at the size it asked for
+    }
     return ((CGSize (*)(id, SEL))origGetSize)(layer, sel);
 }
 
 static id HookNext(CAMetalLayer *layer, SEL sel) {
     if (!gLayer) FindLayer();
-    if (layer == gLayer && gUpscaling) Follow(layer);
+    if (layer != gLayer) return ((id (*)(id, SEL))origNext)(layer, sel);
+    os_unfair_lock_lock(&gLock);
+    CGSize resize = gUpscaling ? Follow(layer) : CGSizeZero;
     if (@available(iOS 16.0, *)) {
-        if (layer == gLayer && !gUpscaling && !gFailed && Prepare(layer)) {  // the first frame after the layer was found
+        if (!gUpscaling && !gFailed && Prepare(layer)) {  // the first frame after the layer was found
             gUpscaling = YES;
-            SetRealSize(layer, gScreen);
+            resize = gScreen;
         }
     }
+    os_unfair_lock_unlock(&gLock);
+    if (resize.width >= 1) SetRealSize(layer, resize);
     id<CAMetalDrawable> real = ((id (*)(id, SEL))origNext)(layer, sel);
-    if (layer != gLayer || !gUpscaling || !real) return real;
-    if (real.texture.width != (NSUInteger)gScreen.width) return real;  // made before the size changed
+    if (!real) return real;
+    os_unfair_lock_lock(&gLock);
+    // No stand-in when upscaling is off, or the drawable was made before the size changed.
+    id<MTLTexture> texture = gUpscaling && gStandIns.count && real.texture.width == (NSUInteger)gScreen.width
+        ? gStandIns[gNextStandIn++ % gStandIns.count] : nil;
+    os_unfair_lock_unlock(&gLock);
+    if (!texture) return real;
     LTStandInDrawable *standIn = [LTStandInDrawable alloc];
     standIn.real = real;
-    standIn.texture = gStandIns[gNextStandIn++ % gStandIns.count];
+    standIn.texture = texture;
     return standIn;
 }
 
@@ -239,12 +266,16 @@ static void HookCommit(id<MTLCommandBuffer> buffer, SEL sel) {
         // The scaler matches the stand-in and the real drawable unless a size changed during the frame;
         // then that frame isn't upscaled.
         if (@available(iOS 16.0, *)) {
-            if (gScaler && input.width == gScalerWidth && input.height == gScalerHeight
-                && real.texture.width == gScaler.outputWidth && real.texture.height == gScaler.outputHeight) {
-                gScaler.colorTexture = input;
-                gScaler.outputTexture = real.texture;
-                gScaler.inputContentWidth = input.width, gScaler.inputContentHeight = input.height;
-                [gScaler encodeToCommandBuffer:buffer];
+            // Keep this frame's scaler alive while it is used; a size change may replace gScaler now.
+            os_unfair_lock_lock(&gLock);
+            id<MTLFXSpatialScaler> scaler = gScaler;
+            BOOL fits = scaler && input.width == gScalerWidth && input.height == gScalerHeight;
+            os_unfair_lock_unlock(&gLock);
+            if (fits && real.texture.width == scaler.outputWidth && real.texture.height == scaler.outputHeight) {
+                scaler.colorTexture = input;
+                scaler.outputTexture = real.texture;
+                scaler.inputContentWidth = input.width, scaler.inputContentHeight = input.height;
+                [scaler encodeToCommandBuffer:buffer];
                 gUpscaled++;
             }
         }
@@ -303,7 +334,12 @@ void LTUpscaleStart(void) {
 }
 
 /** The size MetalFX writes, or zero when it isn't upscaling (LunarWindow.m logs it). */
-CGSize LTUpscaleOutput(void) { return gUpscaling ? gScreen : CGSizeZero; }
+CGSize LTUpscaleOutput(void) {
+    os_unfair_lock_lock(&gLock);
+    CGSize size = gUpscaling ? gScreen : CGSizeZero;
+    os_unfair_lock_unlock(&gLock);
+    return size;
+}
 
 #else
 // An SDK without MetalFX (the iOS Simulator's): no upscaling, the system stretches Unity's picture, as on a
