@@ -4,9 +4,11 @@ What changed in Bunker, newest first. Each day lists its changes by area.
 Commit ids are in brackets. A release's notes are the dated sections
 under its heading, down to the previous release.
 
-## 1.12.25 (2026-11-26)
+## 1.12.26 (2026-11-26)
 
 - iPhone and iPad: fixed "Failed to connect" after the game had been in the background for a few minutes. iOS can close the server's connections while the app is suspended. The game now checks them each time it returns and restarts Lunar Tear when they no longer answer. [48ee967c]
+- iPhone and iPad: fixed a crash that could happen with **Upscaling** set to MetalFX when the game changed its drawing size, for example just after logging in. [60f9f3f8]
+- 1.12.25 was not released.
 
 ## 1.12.24 (2026-11-25)
 
