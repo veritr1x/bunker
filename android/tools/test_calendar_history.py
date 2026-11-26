@@ -231,6 +231,23 @@ class RunQuests(unittest.TestCase):
         self.assertEqual({k: v for k, v in cal.run_quest_copies(tables, {"510": [self.RUN0, None]}).items() if v}, {})
 
 
+class DailyQuests(unittest.TestCase):
+    """The daily quests (chapters 1-6 and 8) and their weekday schedules were
+    open from launch under a 2020 date; the history's first run is launch."""
+
+    def test_the_daily_chapters_open_at_a_loops_start(self):
+        spec, copies = cal.history()["m_event_quest_chapter"], {}
+        chapters = table(*(row(n, 4, Date(1644825600000), Date(253390406340000)) for n in (1, 2, 3, 4, 5, 6, 8)))
+        blob = cal.restore_runs(chapters, dict(spec, dates=[2, 3]), copies)
+        self.assertEqual(cells(blob), [[n, 4, T0, 253390406340000] for n in (1, 2, 3, 4, 5, 6, 8)])
+        self.assertEqual(copies, {})
+
+    def test_their_schedules_open_at_a_loops_start(self):
+        spec = cal.history()["m_quest_schedule"]
+        for key in ("2", "4", "6", "8", "10", "12", "42"):
+            self.assertEqual(cal.runs((1643097600000, 253390406340000), spec["rows"][key])[0][0], T0, key)
+
+
 class DailyMissions(unittest.TestCase):
     """Daily missions 21-26 (term 1002) were the daily set from launch to 24
     November 2021; the weekly masters only kept the run from 24 September."""

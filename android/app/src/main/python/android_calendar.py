@@ -1128,16 +1128,17 @@ def view_file():
 # story chapters on their dates; 5 replays each event run with its own exchange;
 # 6 has daily missions from launch (daily set 21-26's first run); 7 shows each run's own banner;
 # 8 opens rebuilt notices from home banners whose notice was lost; 9 gives each earlier event run
-# its own copies of its quests.
-VIEW_VERSION = "9"
+# its own copies of its quests; 10 has daily quests from launch (chapters 1-6 and 8 and their schedules).
+VIEW_VERSION = "10"
 # Bumped when a loop's game data changes, so the loop in use is rebuilt
 # (read_state): 1 opens story chapters on their dates; 2 keeps every table in key order (auto-repeat);
 # 4 replays each event run with its own exchange, medal and quests (event_runs.json);
 # 5 has daily missions from launch (daily set 21-26's first run, calendar_history.json);
 # 6 shows each event run's own banner (event_banners.json); 7 opens rebuilt notices from home
 # banners whose notice was lost; 8 gives each earlier event run its own copies of its quests
-# (run_quest_copies), whose list of drops is that run's.
-DATA_VERSION = 8
+# (run_quest_copies), whose list of drops is that run's; 9 has daily quests from launch (chapters
+# 1-6 and 8 and their weekday schedules were dated from 2020 until 13 October 2021, calendar_history.json).
+DATA_VERSION = 9
 
 
 def view_version_file():

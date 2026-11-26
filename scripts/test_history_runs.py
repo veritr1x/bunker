@@ -65,5 +65,27 @@ class WrittenRuns(unittest.TestCase):
         for (table, key), runs in ch.RUNS.items():
             self.assertEqual(tables[table]["rows"][key], runs)
 
+class LaunchRuns(unittest.TestCase):
+    def test_the_daily_quests_run_from_launch(self):
+        # The masters date daily chapters 1-6 and 8 from 2020-05-06 at launch, a
+        # placeholder to live(); they were open until the first campaign (13 October 2021).
+        tables = {"m_event_quest_chapter": {"rows": {"1": [[1635148800000, 1637546399000], [1644825600000, 253390406340000]]}}}
+        ch.apply_corrections(tables)
+        self.assertEqual(tables["m_event_quest_chapter"]["rows"]["1"],
+                         [[ch.LAUNCH, 1634090399000], [1635148800000, 1637546399000], [1644825600000, 253390406340000]])
+
+    def test_a_launch_run_is_added_once(self):
+        tables = {"m_quest_schedule": {"rows": {"2": [[1635148800000, 1637546399000]]}}}
+        ch.apply_corrections(ch.apply_corrections(tables))
+        self.assertEqual(tables["m_quest_schedule"]["rows"]["2"], [[ch.LAUNCH, 1634090399000], [1635148800000, 1637546399000]])
+
+    def test_the_committed_history_has_the_launch_runs(self):
+        import json
+        tables = json.loads((ch.PYTHON / "calendar_history.json").read_text())["tables"]
+        self.assertEqual(len(ch.LAUNCH_RUNS), 14)
+        for (table, key), end in ch.LAUNCH_RUNS.items():
+            self.assertEqual(tables[table]["rows"][key][0], [ch.LAUNCH, end], (table, key))
+
+
 if __name__ == "__main__":
     unittest.main()

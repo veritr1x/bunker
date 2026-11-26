@@ -1,5 +1,26 @@
 # Validation
 
+## Daily quests from a loop's first week — 2026-11-26
+
+- The weekly masters from launch: chapters 1-6 and 8 dated 2020-05-06 to 9999
+  and their schedules (2, 4, 6, 8, 10, 12, 42) 2020-01-02 to 2030, until the
+  file of 17 October 2021. A check of every rotating table for rows open at
+  launch under a placeholder date found these 14 and mission term 1002.
+- Host tests: test_history_runs and the Android calendar tests pass. A loop
+  built from the final game data opens the seven chapters and schedules at
+  its start.
+- Android 16 emulator (bunker_api36), the save from 2026-11-23 (backed up
+  first), the calendar's clock set back to week 4 (26 Nov 2026 = 19 Aug
+  2021). Before (1.12.20+dev, already installed): Subquests listed the three
+  Records, Guerrilla Quests, Dungeons and Character Quests, no Daily Quests.
+  After (this change installed over it): the calendar's data rebuilt on the
+  first start (data version 9), Subquests listed Daily Quests (Enhancement
+  Materials, 19 hours left), and Daily Quest: Easy started, cleared and gave
+  its rewards. The save, calendar and game data were put back afterwards; the
+  build with the change stays installed.
+- Not checked: iOS, the "Show original dates" view, and a calendar turned on
+  fresh rather than updated.
+
 ## Android keyboard in Pod Programs — 2026-11-15
 
 - Host tests: test_landscape_layout.py, test_archive_landscape.py and

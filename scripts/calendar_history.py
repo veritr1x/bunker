@@ -82,6 +82,17 @@ RUNS = {
     ("m_mission_term", "1002"): [[LAUNCH, 1637740799000]],
 }
 
+# Rows open at launch under a placeholder date, which live() skips, and dated
+# for real only later: (table, key) -> the end of that first run, added before
+# the recorded ones. The daily quests (chapters 1-6 and 8) and their weekday
+# schedules were dated from 2020 (2020-05-06 and 2020-01-02) until the first
+# campaign replaced them with chapter 10, 13 to 25 October 2021; the weekly
+# masters record them from 25 October, so weeks 1 to 11 had no daily quests.
+LAUNCH_RUNS = {
+    **{("m_event_quest_chapter", key): 1634090399000 for key in ("1", "2", "3", "4", "5", "6", "8")},
+    **{("m_quest_schedule", key): 1634090399000 for key in ("2", "4", "6", "8", "10", "12", "42")},
+}
+
 
 def apply_corrections(tables):
     for (table, key, start), end in CORRECTIONS.items():
@@ -91,6 +102,10 @@ def apply_corrections(tables):
     for (table, key), runs in RUNS.items():
         if table in tables:
             tables[table]["rows"][key] = [list(run) for run in runs]
+    for (table, key), end in LAUNCH_RUNS.items():
+        runs = tables.get(table, {}).get("rows", {}).get(key)
+        if runs and runs[0][0] > end:
+            runs.insert(0, [LAUNCH, end])
     return tables
 
 
