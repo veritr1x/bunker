@@ -1,7 +1,7 @@
 {
-  "reincompVersion": "0.3.13",
-  "bunkerVersion": "1.12.24",
-  "asset": "reincomp-linux-x86_64-0.3.13.tar.gz",
-  "sha256": "305019106e623603f4b98c9ac6e130fcb3bf4ee603a11bb3955714f4f0ef8542",
-  "size": 272342096
+  "reincompVersion": "0.3.14",
+  "bunkerVersion": "1.12.26",
+  "asset": "reincomp-linux-x86_64-0.3.14.tar.gz",
+  "sha256": "f8ba955e0277cef2df8d2c880e5d2ec9e296d5af400587076eddcbba0e9ff29a",
+  "size": 272342727
 }
